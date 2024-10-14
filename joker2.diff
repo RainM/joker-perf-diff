@@ -1,0 +1,35 @@
+diff --git a/tools/perf/util/jitdump.c b/tools/perf/util/jitdump.c
+index 1f657ef8975f..d9fb6e1d3039 100644
+--- a/tools/perf/util/jitdump.c
++++ b/tools/perf/util/jitdump.c
+@@ -117,7 +117,7 @@ jit_close(struct jit_buf_desc *jd)
+ 	fclose(jd->in);
+ 	jd->in = NULL;
+ }
+-
++#if 0
+ static int
+ jit_validate_events(struct perf_session *session)
+ {
+@@ -132,7 +132,7 @@ jit_validate_events(struct perf_session *session)
+ 	}
+ 	return 0;
+ }
+-
++#endif
+ static int
+ jit_open(struct jit_buf_desc *jd, const char *name)
+ {
+@@ -212,10 +212,10 @@ jit_open(struct jit_buf_desc *jd, const char *name)
+ 	/*
+ 	 * validate event is using the correct clockid
+ 	 */
+-	if (!jd->use_arch_timestamp && jit_validate_events(jd->session)) {
++	/*	if (!jd->use_arch_timestamp && jit_validate_events(jd->session)) {
+ 		pr_err("error, jitted code must be sampled with perf record -k 1\n");
+ 		goto error;
+-	}
++		}*/
+ 
+ 	bs = header.total_size - sizeof(header);
+ 
