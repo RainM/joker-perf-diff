@@ -1,16 +1,7 @@
 diff --git a/tools/perf/jvmti/jvmti_agent.c b/tools/perf/jvmti/jvmti_agent.c
-index 526dcaf9f079..f21cd483a748 100644
+index 526dcaf9f079..96179aa833a6 100644
 --- a/tools/perf/jvmti/jvmti_agent.c
 +++ b/tools/perf/jvmti/jvmti_agent.c
-@@ -423,7 +423,7 @@ jvmti_write_debug_info(void *agent, uint64_t code,
- 	uint64_t addr;
- 	FILE *fp = agent;
- 	int i;
--
-+	
- 	/*
- 	 * no entry to write
- 	 */
 @@ -436,7 +436,7 @@ jvmti_write_debug_info(void *agent, uint64_t code,
  	}
  
@@ -42,7 +33,7 @@ index 6ed82f6c06dd..7290ac5c76f2 100644
  
  void *jvmti_open(void);
 diff --git a/tools/perf/jvmti/libjvmti.c b/tools/perf/jvmti/libjvmti.c
-index fcca275e5bf9..ff89edd7f9e2 100644
+index fcca275e5bf9..cd679c9dbbc2 100644
 --- a/tools/perf/jvmti/libjvmti.c
 +++ b/tools/perf/jvmti/libjvmti.c
 @@ -17,6 +17,16 @@
@@ -171,12 +162,7 @@ index fcca275e5bf9..ff89edd7f9e2 100644
  {
  	const jvmtiCompiledMethodLoadRecordHeader *hdr;
  	jvmtiCompiledMethodLoadInlineRecord *rec;
-@@ -78,50 +117,42 @@ get_line_numbers(jvmtiEnv *jvmti, const void *compile_info, jvmti_line_info_t **
- 	jint ret;
- 	int nr_total = 0;
- 	int i, lines_total = 0;
--
-+	
+@@ -82,46 +121,38 @@ get_line_numbers(jvmtiEnv *jvmti, const void *compile_info, jvmti_line_info_t **
  	if (!(tab && nr_lines))
  		return JVMTI_ERROR_NULL_POINTER;
  
@@ -190,30 +176,8 @@ index fcca275e5bf9..ff89edd7f9e2 100644
  		if (hdr->kind == JVMTI_CMLR_INLINE_INFO) {
 -			rec = (jvmtiCompiledMethodLoadInlineRecord *)hdr;
 -			nr_total += rec->numpcs;
-+		  rec = (jvmtiCompiledMethodLoadInlineRecord *)hdr;
-+		  for (int i = 0; i < rec->numpcs; i += 1) {
-+		    PCStackInfo *info = &rec->pcinfo[i];
-+		    char full_name[10000] = {};
-+		    char inlined_name[10000] = {};
-+		    int lineno = -1;
-+		    for (int ii = info->numstackframes - 1; ii >= 0; --ii) {
-+		      sig_string(jvmti, info->methods[ii], info->bcis[ii], inlined_name, sizeof(inlined_name), "", &lineno);
-+		      strcat(full_name, inlined_name);
-+		      if (ii != 0) {
-+			strcat(full_name, ">>");
-+		      }
-+		    }
-+		    *nr_lines += 1;
-+		    *tab = realloc(*tab, *nr_lines * sizeof(**tab));
-+
-+		    jvmti_line_info_t* t = *tab + (*nr_lines - 1);
-+		    t->pc = (unsigned long)info->pc;
-+		    t->line_number = lineno;
-+		    t->methodID = root_method;
-+		    t->method_name = strdup(full_name);
-+		  }
- 		}
- 	}
+-		}
+-	}
 -
 -	if (nr_total == 0)
 -		return JVMTI_ERROR_NOT_FOUND;
@@ -242,13 +206,35 @@ index fcca275e5bf9..ff89edd7f9e2 100644
 -				if (ret == JVMTI_ERROR_NONE)
 -					lines_total++;
 -			}
--		}
--	}
++		  rec = (jvmtiCompiledMethodLoadInlineRecord *)hdr;
++		  for (int i = 0; i < rec->numpcs; i += 1) {
++		    PCStackInfo *info = &rec->pcinfo[i];
++		    char full_name[10000] = {};
++		    char inlined_name[10000] = {};
++		    int lineno = -1;
++		    for (int ii = info->numstackframes - 1; ii >= 0; --ii) {
++		      sig_string(jvmti, info->methods[ii], info->bcis[ii], inlined_name, sizeof(inlined_name), "", &lineno);
++		      strcat(full_name, inlined_name);
++		      if (ii != 0) {
++			strcat(full_name, ">>");
++		      }
++		    }
++		    *nr_lines += 1;
++		    *tab = realloc(*tab, *nr_lines * sizeof(**tab));
++
++		    jvmti_line_info_t* t = *tab + (*nr_lines - 1);
++		    t->pc = (unsigned long)info->pc;
++		    t->line_number = lineno;
++		    t->methodID = root_method;
++		    t->method_name = strdup(full_name);
++		  }
+ 		}
+ 	}
 -	*nr_lines = lines_total;
  	return JVMTI_ERROR_NONE;
  }
  #else /* HAVE_JVMTI_CMLR */
-@@ -255,25 +286,28 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
+@@ -255,25 +286,13 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
  	}
  
  	if (has_line_numbers && map && map_length) {
@@ -260,28 +246,23 @@ index fcca275e5bf9..ff89edd7f9e2 100644
  				warnx("jvmti: cannot get line table for method");
  			}
  			nr_lines = 0;
- 		} else if (nr_lines > 0) {
+-		} else if (nr_lines > 0) {
 -			line_file_names = malloc(sizeof(char*) * nr_lines);
-+		  /*
-+		  line_file_names = malloc(sizeof(char*) * nr_lines);
- 			if (!line_file_names) {
- 				warnx("jvmti: cannot allocate space for line table method names");
- 			} else {
-+			  
- 				memset(line_file_names, 0, sizeof(char*) * nr_lines);
- 				ret = fill_source_filenames(jvmti, nr_lines, line_tab, line_file_names);
- 				if (ret != JVMTI_ERROR_NONE) {
- 					warnx("jvmti: fill_source_filenames failed");
- 				} else {
- 					output_debug_info = 1;
+-			if (!line_file_names) {
+-				warnx("jvmti: cannot allocate space for line table method names");
+-			} else {
+-				memset(line_file_names, 0, sizeof(char*) * nr_lines);
+-				ret = fill_source_filenames(jvmti, nr_lines, line_tab, line_file_names);
+-				if (ret != JVMTI_ERROR_NONE) {
+-					warnx("jvmti: fill_source_filenames failed");
+-				} else {
+-					output_debug_info = 1;
 -				}
 -			}
-+					}
-+					}*/
  		}
  	}
  
-@@ -290,7 +324,6 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
+@@ -290,7 +309,6 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
  		print_error(jvmti, "GetMethodName", ret);
  		goto error;
  	}
@@ -289,7 +270,7 @@ index fcca275e5bf9..ff89edd7f9e2 100644
  	/*
  	 * write source line info record if we have it
  	 */
-@@ -300,24 +333,28 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
+@@ -300,24 +318,28 @@ compiled_method_load_cb(jvmtiEnv *jvmti,
  
  	len = strlen(func_name) + strlen(class_sign) + strlen(func_sign) + 2;
  	{
